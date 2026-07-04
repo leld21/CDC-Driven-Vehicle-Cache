@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: debezium-connector
+  labels:
+    app: connect
+data:
+  # Body for PUT /connectors/nstech-postgres/config (config object only).
+  # Mirrors docs/spec.md §4.
+  connector.json: |
+    {
+      "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+      "plugin.name": "pgoutput",
+      "database.hostname": "postgres",
+      "database.port": "5432",
+      "database.dbname": "nstech",
+      "database.user": "nstech",
+      "database.password": "nstech",
+      "topic.prefix": "nstech",
+      "table.include.list": "public.vehicles,public.positions",
+      "snapshot.mode": "initial",
+      "tombstones.on.delete": "true",
+      "decimal.handling.mode": "double",
+      "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+      "key.converter.schemas.enable": "false",
+      "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+      "value.converter.schemas.enable": "false",
+      "slot.name": "nstech_slot",
+      "publication.name": "nstech_pub",
+      "topic.creation.enable": "true",
+      "topic.creation.default.replication.factor": "1",
+      "topic.creation.default.partitions": "1"
+    }
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: register-connector
+  labels:
+    app: connect
+spec:
+  backoffLimit: 30
+  template:
+    metadata:
+      labels:
+        app: connect
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: register
+          image: curlimages/curl:8.10.1
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              echo "waiting for Kafka Connect REST..."
+              until curl -sf http://connect:8083/connectors >/dev/null; do
+                sleep 5
+              done
+              echo "Connect is up. Registering connector (idempotent PUT)..."
+              code=$(curl -s -o /tmp/out -w "%{http_code}" \
+                -X PUT http://connect:8083/connectors/nstech-postgres/config \
+                -H "Content-Type: application/json" \
+                --data @/config/connector.json)
+              echo "HTTP $code"
+              cat /tmp/out
+              echo
+              case "$code" in
+                200|201) echo "connector registered/updated OK" ;;
+                *) echo "registration failed"; exit 1 ;;
+              esac
+          volumeMounts:
+            - name: connector
+              mountPath: /config
+      volumes:
+        - name: connector
+          configMap:
+            name: debezium-connector

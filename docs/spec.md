@@ -145,11 +145,14 @@ to `0` (ADR-007).
 
 ```json
 { "op": "d", "ts_ms": 1700000009000,
-  "before": { "id": 42, "state": "ACTIVE", "updated_at": "..." },
+  "before": { "id": 42, "state": "", "updated_at": "1970-01-01T00:00:00.000000Z" },
   "after": null,
-  "source": { "lsn": 999999, "snapshot": "false", "table": "vehicles" } }
+  "source": { "lsn": 26680072, "snapshot": "false", "table": "vehicles" } }
 ```
-Key: `{ "id": 42 }`. Consumed: `before.id`, `source.lsn`.
+Key: `{ "id": 42 }`. Consumed: `before.id`, `source.lsn` **only**. Under
+`REPLICA IDENTITY DEFAULT` the delete `before` image carries **only the primary
+key**; the other columns are placeholders (`state:""`, epoch-0 timestamp), so the
+worker must never read `before.state` — the delete simply flags the id by LSN.
 Immediately followed by the **tombstone**: key `{ "id": 42 }`, **value `null`**.
 
 ### 5.3 `positions` — insert (`op=c`) and snapshot (`op=r`)
@@ -354,12 +357,24 @@ over breadth, per case §4's "defensible partial build" guidance.
 
 ---
 
-## 11. Open premises to confirm in Phase 1
+## 11. Premises — validation status (against real Debezium output)
 
-- Exact `timestamptz` serialization (ISO string vs numeric) — isolated in
-  `orderingGuard` (§7.2); worker normalizes either way.
-- Snapshot `source.lsn`: null vs `consistent_point` — both handled by the `?? 0`
-  coalesce (ADR-007).
-- `positions` message **key** is the position PK (join key comes from
-  `after.vehicle_id`) — confirm against a real key.
-- Tombstone message emitted with a `null` **value** (not an empty object).
+Captured from the live stack (`just up` + real inserts/update/delete) on the
+local k3d cluster; source connector `io.debezium.connector.postgresql`
+**v3.0.0.Final**:
+
+- ✅ **`timestamptz` → ISO-8601 string** (`ZonedTimestamp`), e.g.
+  `recorded_at: "2026-07-04T18:00:05.000000Z"`. The worker parses ISO → epoch-ms
+  in `orderingGuard` (§7.2), so the wire form never leaks into the ordering rule.
+- ✅ **`positions` key is the position PK** (`{"id":1}`); the join key is
+  `after.vehicle_id` (§5.3).
+- ✅ **`source.lsn` is a plain integer** on `c`/`u`/`d` (observed e.g.
+  `26679464`), read as int64.
+- ✅ **Tombstone** emitted as a message with the key and a **null value** (§5.2).
+- ✅ **Delete `before` under `REPLICA IDENTITY DEFAULT` is PK-only** — the worker
+  uses `before.id` + `source.lsn` and ignores the other `before` columns.
+- ✅ **`schemas.enable=false`** → lean envelope, no `schema` wrapper.
+- ⏳ **Snapshot (`op=r`) LSN** not yet observed (tables were empty at first
+  connect, so `snapshot.mode=initial` emitted no rows). Safe by design regardless:
+  `lsn ?? 0` (ADR-007). Will be exercised once the mock writers seed data before a
+  fresh connector start.

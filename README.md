@@ -5,9 +5,12 @@ captures `vehicles` and `positions` from PostgreSQL, streams them through Kafka,
 and a .NET 10 worker projects them into a Valkey cache that always reflects, per
 vehicle, its latest position and current state. Readers hit Valkey, never the DB.
 
-> Status: design complete. The four design docs (C4, Spec, test-behaviors, ADR)
-> live in `docs/`. The worker, mock writers, Debezium/Kafka/Valkey manifests and
-> the `just e2e` automation are built during the implementation phase.
+> Status: design complete; local infra live. The four design docs (C4, Spec,
+> test-behaviors, ADR) live in `docs/`, and `just up` deploys the full stack
+> (Postgres + logical replication, Kafka in KRaft, Kafka Connect + Debezium,
+> Valkey) to a local k3d cluster via devspace, registering the Debezium
+> connector. The .NET 10 worker, the mock writers, and the `just e2e` automation
+> are built next.
 
 ## Prerequisites
 
@@ -41,7 +44,9 @@ Other helpers: `just` (list recipes), `just status`, `just down`.
 ```
 devenv.nix / devenv.yaml   reproducible toolchain
 .envrc                     direnv -> devenv autoload
-justfile                   task recipes (up / e2e / down / status)
+justfile                   task recipes (up / e2e / down / status / peek / psql)
+devspace.yaml              deploys the deploy/ manifests to the cluster
+deploy/                    k8s manifests: postgres, kafka, connect, valkey, connector
 docs/                      design artifacts:
   ADR.md                     architecture decision records
   spec.md                    spec + implementation plan

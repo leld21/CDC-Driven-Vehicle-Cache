@@ -1,0 +1,26 @@
+version: v2beta1
+name: nstech
+
+# Local stack for the CDC-driven vehicle cache. Deploys the infra the worker
+# projects from. The worker + mock writers are added in later phases.
+deployments:
+  postgres:
+    kubectl:
+      manifests:
+        - deploy/postgres.yaml
+  kafka:
+    kubectl:
+      manifests:
+        - deploy/kafka.yaml
+  valkey:
+    kubectl:
+      manifests:
+        - deploy/valkey.yaml
+  connect:
+    kubectl:
+      manifests:
+        - deploy/connect.yaml
+  connector:
+    kubectl:
+      manifests:
+        - deploy/connector.yaml
