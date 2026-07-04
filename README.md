@@ -5,9 +5,9 @@ captures `vehicles` and `positions` from PostgreSQL, streams them through Kafka,
 and a .NET 10 worker projects them into a Valkey cache that always reflects, per
 vehicle, its latest position and current state. Readers hit Valkey, never the DB.
 
-> Status: environment bootstrap. Worker, mock writers, Debezium/Kafka/Valkey
-> manifests, tests and the four design docs (C4, Spec, test-behaviors, ADR) are
-> built during the implementation phase.
+> Status: design complete. The four design docs (C4, Spec, test-behaviors, ADR)
+> live in `docs/`. The worker, mock writers, Debezium/Kafka/Valkey manifests and
+> the `just e2e` automation are built during the implementation phase.
 
 ## Prerequisites
 
@@ -42,4 +42,11 @@ Other helpers: `just` (list recipes), `just status`, `just down`.
 devenv.nix / devenv.yaml   reproducible toolchain
 .envrc                     direnv -> devenv autoload
 justfile                   task recipes (up / e2e / down / status)
+docs/                      design artifacts:
+  ADR.md                     architecture decision records
+  spec.md                    spec + implementation plan
+  test-behaviors.md          Given/When/Then acceptance behaviors
+  c4.md                      C4 model (canonical, C4 notation)
+  c4-flowchart.md            C4 model (flowchart rendering, readability)
+  case.md                    original challenge brief
 ```
