@@ -1,0 +1,15 @@
+# devenv
+.devenv/
+.devenv.flake.nix
+devenv.local.nix
+
+# direnv
+.direnv/
+
+# dotnet
+bin/
+obj/
+*.user
+
+# misc
+.probe.txt
