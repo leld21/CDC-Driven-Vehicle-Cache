@@ -32,48 +32,6 @@ data:
       "topic.creation.default.partitions": "1"
     }
 ---
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: register-connector
-  labels:
-    app: connect
-spec:
-  backoffLimit: 30
-  template:
-    metadata:
-      labels:
-        app: connect
-    spec:
-      restartPolicy: OnFailure
-      containers:
-        - name: register
-          image: curlimages/curl:8.10.1
-          command:
-            - sh
-            - -c
-            - |
-              set -eu
-              echo "waiting for Kafka Connect REST..."
-              until curl -sf http://connect:8083/connectors >/dev/null; do
-                sleep 5
-              done
-              echo "Connect is up. Registering connector (idempotent PUT)..."
-              code=$(curl -s -o /tmp/out -w "%{http_code}" \
-                -X PUT http://connect:8083/connectors/nstech-postgres/config \
-                -H "Content-Type: application/json" \
-                --data @/config/connector.json)
-              echo "HTTP $code"
-              cat /tmp/out
-              echo
-              case "$code" in
-                200|201) echo "connector registered/updated OK" ;;
-                *) echo "registration failed"; exit 1 ;;
-              esac
-          volumeMounts:
-            - name: connector
-              mountPath: /config
-      volumes:
-        - name: connector
-          configMap:
-            name: debezium-connector
+# Connector registration is done by `just connector-register` (idempotent PUT).
+# A Kubernetes Job only runs once; if Connect restarts without the connector,
+# the completed Job would not re-register it.

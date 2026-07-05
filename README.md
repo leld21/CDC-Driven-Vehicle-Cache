@@ -39,14 +39,31 @@ just e2e   # run end-to-end: mocks -> Debezium -> Kafka -> worker -> Valkey,
 
 Other helpers: `just` (list recipes), `just status`, `just down`.
 
+Worker (skeleton, local run against the cluster):
+
+```bash
+just worker-build    # compile
+just worker-run      # port-forward kafka EXTERNAL (9094) + valkey, run locally
+just worker-image    # build container + import into k3d
+just worker-deploy   # deploy worker pod in the cluster (uses kafka:9092 in-cluster)
+just valkey-get 1    # inspect vehicle:1 after the worker processed events
+just connector-register  # re-register Debezium if connector 404 after a restart
+```
+
+Local `worker-run` uses Kafka's **EXTERNAL** listener (`localhost:9094`) because the
+broker advertises `kafka:9092` for in-cluster clients — a plain port-forward on 9092
+would still redirect the consumer to the unresolvable `kafka` hostname.
+
 ## Layout
 
 ```
 devenv.nix / devenv.yaml   reproducible toolchain
 .envrc                     direnv -> devenv autoload
-justfile                   task recipes (up / e2e / down / status / peek / psql)
+justfile                   task recipes (up / e2e / worker-* / peek / psql)
 devspace.yaml              deploys the deploy/ manifests to the cluster
-deploy/                    k8s manifests: postgres, kafka, connect, valkey, connector
+deploy/                    k8s manifests: postgres, kafka, connect, valkey, connector, worker
+src/Worker/                .NET 10 CDC worker (BackgroundService, Confluent.Kafka, StackExchange.Redis)
+CDC-Driven-Vehicle-Cache.sln
 docs/                      design artifacts:
   ADR.md                     architecture decision records
   spec.md                    spec + implementation plan

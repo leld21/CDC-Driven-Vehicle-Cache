@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  labels:
+    app: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+        - name: worker
+          # Build locally: just worker-image (loads into k3d)
+          image: nstech-worker:local
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: Kafka__BootstrapServers
+              value: "kafka:9092"
+            - name: Kafka__GroupId
+              value: "nstech-worker"
+            - name: Kafka__VehiclesTopic
+              value: "nstech.public.vehicles"
+            - name: Kafka__PositionsTopic
+              value: "nstech.public.positions"
+            - name: Valkey__ConnectionString
+              value: "valkey:6379"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

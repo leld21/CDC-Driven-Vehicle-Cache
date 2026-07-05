@@ -13,6 +13,7 @@ devenv.local.nix
 bin/
 obj/
 *.user
+.vs/
 
 # misc
 .probe.txt
