@@ -1,6 +1,6 @@
 {
   "name": "e2e",
-  "description": "Deterministic scenario for just e2e — covers test-behaviors B1–B6 (B7/B8 exercised by e2e harness). Vehicle 3 is a simple REGISTERED + position baseline.",
+  "description": "Deterministic scenario for just e2e — covers test-behaviors B1–B6 (B7/B8 exercised by e2e harness). Vehicle 3 is REGISTERED → ACTIVE with one position.",
   "vehicles": [
     { "seq": 1, "op": "insert", "id": 1, "state": "REGISTERED" },
     { "seq": 3, "op": "update", "id": 1, "state": "ACTIVE" },
@@ -8,7 +8,8 @@
     { "seq": 9, "op": "update", "id": 1, "state": "IDLE" },
     { "seq": 10, "op": "update", "id": 1, "state": "MAINTENANCE" },
     { "seq": 11, "op": "delete", "id": 1 },
-    { "seq": 12, "op": "insert", "id": 3, "state": "REGISTERED", "note": "baseline vehicle — happy path alongside B5 delete" }
+    { "seq": 12, "op": "insert", "id": 3, "state": "REGISTERED" },
+    { "seq": 15, "op": "update", "id": 3, "state": "ACTIVE" }
   ],
   "positions": [
     { "seq": 2, "vehicleId": 1, "lat": -23.50, "lng": -46.60, "recordedAt": "2026-07-04T18:00:02Z", "note": "B2 first position" },
@@ -35,7 +36,7 @@
       "recordedAt": "1783188007000"
     },
     "3": {
-      "state": "REGISTERED",
+      "state": "ACTIVE",
       "deleted": "0",
       "lat": "-23.52",
       "lng": "-46.62",
