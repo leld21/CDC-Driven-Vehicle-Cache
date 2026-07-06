@@ -58,15 +58,18 @@ public sealed class ValkeyCacheWriter(IConnectionMultiplexer multiplexer) : ICac
     {
         var db = multiplexer.GetDatabase();
         var key = VehicleKey(request.VehicleId);
-        var result = await db.ScriptEvaluateAsync(
-            VehicleScript,
-            [key],
+        var lsn = request.Lsn!.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        RedisValue[] argv = op == "delete"
+            ? [lsn, op, "", ""]
+            :
             [
-                request.Lsn!.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                lsn,
                 op,
                 request.State ?? string.Empty,
                 request.StateUpdatedAtMs!.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)
-            ]).ConfigureAwait(false);
+            ];
+
+        var result = await db.ScriptEvaluateAsync(VehicleScript, [key], argv).ConfigureAwait(false);
 
         cancellationToken.ThrowIfCancellationRequested();
         return (int)result == 1 ? WriteOutcome.Applied : WriteOutcome.SkippedStale;

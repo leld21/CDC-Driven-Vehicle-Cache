@@ -1,0 +1,45 @@
+{
+  "name": "e2e",
+  "description": "Deterministic scenario for just e2e — covers test-behaviors B1–B6 (B7/B8 exercised by e2e harness). Vehicle 3 is a simple REGISTERED + position baseline.",
+  "vehicles": [
+    { "seq": 1, "op": "insert", "id": 1, "state": "REGISTERED" },
+    { "seq": 3, "op": "update", "id": 1, "state": "ACTIVE" },
+    { "seq": 8, "op": "insert", "id": 2, "state": "REGISTERED" },
+    { "seq": 9, "op": "update", "id": 1, "state": "IDLE" },
+    { "seq": 10, "op": "update", "id": 1, "state": "MAINTENANCE" },
+    { "seq": 11, "op": "delete", "id": 1 },
+    { "seq": 12, "op": "insert", "id": 3, "state": "REGISTERED", "note": "baseline vehicle — happy path alongside B5 delete" }
+  ],
+  "positions": [
+    { "seq": 2, "vehicleId": 1, "lat": -23.50, "lng": -46.60, "recordedAt": "2026-07-04T18:00:02Z", "note": "B2 first position" },
+    { "seq": 4, "vehicleId": 1, "lat": -23.51, "lng": -46.61, "recordedAt": "2026-07-04T18:00:10Z", "note": "B3 newer position — must win" },
+    { "seq": 5, "vehicleId": 1, "lat": -23.99, "lng": -46.99, "recordedAt": "2026-07-04T18:00:05Z", "note": "B3 stale recordedAt — must NOT overwrite seq 4" },
+    { "seq": 6, "vehicleId": 1, "lat": -23.51, "lng": -46.61, "recordedAt": "2026-07-04T18:00:10Z", "duplicateOf": 4, "note": "B4 duplicate insert — idempotent in effect" },
+    { "seq": 7, "vehicleId": 2, "lat": 0.0, "lng": 0.0, "recordedAt": "2026-07-04T18:00:07Z", "note": "B6 orphan position before vehicle 2 exists" },
+    { "seq": 13, "vehicleId": 1, "lat": -23.50, "lng": -46.60, "recordedAt": "2026-07-04T18:00:03Z", "note": "B5 late position after delete — must not un-delete" },
+    { "seq": 14, "vehicleId": 3, "lat": -23.52, "lng": -46.62, "recordedAt": "2026-07-04T18:00:11Z", "note": "baseline position for vehicle 3" }
+  ],
+  "expected": {
+    "1": {
+      "state": "MAINTENANCE",
+      "deleted": "1",
+      "lat": "-23.51",
+      "lng": "-46.61",
+      "recordedAt": "1783188010000"
+    },
+    "2": {
+      "state": "REGISTERED",
+      "deleted": "0",
+      "lat": "0",
+      "lng": "0",
+      "recordedAt": "1783188007000"
+    },
+    "3": {
+      "state": "REGISTERED",
+      "deleted": "0",
+      "lat": "-23.52",
+      "lng": "-46.62",
+      "recordedAt": "1783188011000"
+    }
+  }
+}

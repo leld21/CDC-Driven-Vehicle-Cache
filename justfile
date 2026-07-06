@@ -204,6 +204,60 @@ wait-topics:
 worker-build:
     dotnet build CDC-Driven-Vehicle-Cache.sln
 
+# Build mock writers + shared scenario library
+mocks-build:
+    dotnet build src/VehicleWriter/VehicleWriter.csproj
+    dotnet build src/PositionWriter/PositionWriter.csproj
+
+# Run only vehicle steps from a scenario (sorted by seq within vehicles[])
+mocks-vehicle scenario="scenarios/e2e.json":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    trap 'kill $(jobs -p) 2>/dev/null || true' EXIT
+    kubectl port-forward svc/postgres 5432:5432 &
+    sleep 2
+    export POSTGRES__CONNECTIONSTRING="${POSTGRES__CONNECTIONSTRING:-Host=localhost;Port=5432;Database=nstech;Username=nstech;Password=nstech}"
+    dotnet run --project src/VehicleWriter -- --scenario "{{scenario}}"
+
+# Run only position steps from a scenario (sorted by seq within positions[])
+mocks-position scenario="scenarios/e2e.json":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    trap 'kill $(jobs -p) 2>/dev/null || true' EXIT
+    kubectl port-forward svc/postgres 5432:5432 &
+    sleep 2
+    export POSTGRES__CONNECTIONSTRING="${POSTGRES__CONNECTIONSTRING:-Host=localhost;Port=5432;Database=nstech;Username=nstech;Password=nstech}"
+    export SCENARIO_PATH="{{scenario}}"
+    dotnet run --project src/PositionWriter -- --scenario "{{scenario}}"
+
+# Run the full interleaved scenario timeline (global seq order — required for B6 cross-stream race)
+mocks-run scenario="scenarios/e2e.json":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    trap 'kill $(jobs -p) 2>/dev/null || true' EXIT
+    kubectl port-forward svc/postgres 5432:5432 &
+    sleep 2
+    export POSTGRES__CONNECTIONSTRING="${POSTGRES__CONNECTIONSTRING:-Host=localhost;Port=5432;Database=nstech;Username=nstech;Password=nstech}"
+    export SCENARIO_PATH="{{scenario}}"
+    echo "resetting source tables..."
+    kubectl exec -i deploy/postgres -- psql -U nstech -d nstech -c "TRUNCATE positions RESTART IDENTITY; TRUNCATE vehicles;"
+    just mocks-build
+    mapfile -t steps < <(jq -c '
+      [.vehicles[] | . + {stream:"vehicles"}] + [.positions[] | . + {stream:"positions"}]
+      | sort_by(.seq) | .[]' "{{scenario}}")
+    echo "running {{scenario}} (${#steps[@]} steps, interleaved by seq)..."
+    for step in "${steps[@]}"; do
+      stream=$(echo "$step" | jq -r .stream)
+      seq=$(echo "$step" | jq -r .seq)
+      echo "--- seq=${seq} stream=${stream} ---"
+      if [ "$stream" = "vehicles" ]; then
+        dotnet run --project src/VehicleWriter --no-build -- --step "$step"
+      else
+        dotnet run --project src/PositionWriter --no-build -- --step "$step"
+      fi
+    done
+    echo "mocks-run done"
+
 # Run the worker locally (port-forwards Kafka EXTERNAL + Valkey from the cluster)
 worker-run:
     #!/usr/bin/env bash
@@ -235,8 +289,9 @@ worker-deploy:
 valkey-get vehicle_id:
     kubectl exec deploy/valkey -- valkey-cli HGETALL vehicle:{{vehicle_id}}
 
-# Full end-to-end run (to be implemented during the build phase):
-# env up -> mocks write to Postgres -> Debezium -> Kafka -> worker -> Valkey
-# -> assert the view is correct -> replay from offset 0 -> assert identical cache
-e2e:
-    @echo "TODO(build phase): implement the end-to-end + replay-rebuild check"
+# Full end-to-end: stack up -> mocks -> worker -> assert -> replay-rebuild (spec §9)
+e2e scenario="scenarios/e2e.json":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export SCENARIO="{{scenario}}"
+    bash scripts/e2e.sh
