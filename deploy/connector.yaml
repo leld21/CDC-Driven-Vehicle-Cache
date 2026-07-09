@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: debezium-connector
+  labels:
+    app: connect
+data:
+  # Body for PUT /connectors/nstech-postgres/config (config object only).
+  # Mirrors docs/spec.md §4.
+  connector.json: |
+    {
+      "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+      "plugin.name": "pgoutput",
+      "database.hostname": "postgres",
+      "database.port": "5432",
+      "database.dbname": "nstech",
+      "database.user": "nstech",
+      "database.password": "nstech",
+      "topic.prefix": "nstech",
+      "table.include.list": "public.vehicles,public.positions",
+      "snapshot.mode": "initial",
+      "tombstones.on.delete": "true",
+      "decimal.handling.mode": "double",
+      "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+      "key.converter.schemas.enable": "false",
+      "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+      "value.converter.schemas.enable": "false",
+      "slot.name": "nstech_slot",
+      "publication.name": "nstech_pub",
+      "topic.creation.enable": "true",
+      "topic.creation.default.replication.factor": "1",
+      "topic.creation.default.partitions": "1"
+    }
+---
+# Connector registration is done by `just connector-register` (idempotent PUT).
+# A Kubernetes Job only runs once; if Connect restarts without the connector,
+# the completed Job would not re-register it.

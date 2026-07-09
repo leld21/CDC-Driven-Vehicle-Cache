@@ -6,10 +6,14 @@ devenv.local.nix
 # direnv
 .direnv/
 
+# devspace
+.devspace/
+
 # dotnet
 bin/
 obj/
 *.user
+.vs/
 
 # misc
 .probe.txt
